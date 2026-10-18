@@ -1,6 +1,7 @@
 import type { Edge, Node } from "@xyflow/react";
 import type { ExecutionLogEntry } from "@/lib/types/workflow";
 import type { NodeKind, NodeCategory, NodeConfigMap } from "@/lib/types/nodes";
+import { evaluateCondition } from "@/lib/engine/safeExpression";
 
 const MAX_STEPS = 200; // guard against accidental cycles
 const MAX_DELAY_MS = 5000; // never let a single "Delay" node block a request for long
@@ -75,14 +76,13 @@ function log(
   });
 }
 
-/** Very small, sandboxed evaluator for condition expressions like `data.score > 5`. */
+/**
+ * Evaluates condition expressions like `data.score > 5`.
+ * Uses a small purpose-built parser instead of `new Function`, so the
+ * expression text can never run arbitrary code on the server.
+ */
 function evaluateExpression(expression: string, context: Record<string, unknown>): boolean {
-  try {
-    const fn = new Function("data", `"use strict"; return Boolean(${expression || "true"});`);
-    return fn(context);
-  } catch {
-    return false;
-  }
+  return evaluateCondition(expression, context);
 }
 
 /** Resolves `{{path.to.value}}` placeholders against the execution context. */

@@ -47,22 +47,31 @@ export async function revokeShare(workflowId: string) {
   }
 }
 
-export async function getSharedWorkflow(token: string) {
-  const { data: share, error: shareError } = await supabase
-    .from("workflow_shares")
-    .select("workflow_id")
-    .eq("token", token)
-    .maybeSingle();
+export interface SharedWorkflow {
+  id: string;
+  title: string;
+  description: string;
+  trigger: string;
+  ai_model: string;
+  action: string;
+  status: string;
+  nodes: unknown[];
+  edges: unknown[];
+}
 
-  if (shareError || !share) return null;
-
-  const { data: workflow, error: workflowError } = await supabase
-    .from("workflows")
-    .select("id, title, description, trigger, ai_model, action, status, nodes, edges")
-    .eq("id", share.workflow_id)
-    .maybeSingle();
-
-  if (workflowError || !workflow) return null;
-
-  return workflow;
+/**
+ * Loads a shared workflow through the server route, which looks it up by its
+ * secret token and strips node secrets. The browser can no longer query the
+ * workflows or workflow_shares tables directly for this.
+ */
+export async function getSharedWorkflow(token: string): Promise<SharedWorkflow | null> {
+  try {
+    const res = await fetch(`/api/share/${encodeURIComponent(token)}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as SharedWorkflow;
+  } catch {
+    return null;
+  }
 }
